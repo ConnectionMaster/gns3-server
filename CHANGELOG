@@ -1,5 +1,55 @@
 # Change Log
 
+## 2.2.22 10/06/2021
+
+* Fix VMware support on macOS BigSur
+* Link style support. Fixes https://github.com/GNS3/gns3-gui/issues/2461
+* Release web UI version 2.2.22
+* Preserve auto_start/auto_open/auto_close when restoring snapshot
+* Fix uBridge errors for cloud nodes not visible in logs. Fixes #1895
+* Prevent directory traversal. Fixes #1894
+
+## 2.2.21 10/05/2021
+
+* Release Web-Ui v2.2.21
+* Improvements for get symbol dimensions endpoint. Ref #1885
+
+## 2.2.20 09/04/2021
+
+* Release Web UI version 2.2.20
+* Fix packet capture with HTTPS remote server. Fixes #1882
+* Sync appliance files and remove old ones after sync with online repo. Fixes #1876
+* Upgrade dependencies
+* Fix export for missing files
+* Fix issue when trying to export temporary Dynamips files.
+
+## 2.2.19 05/03/2021
+
+* Launch projects marked for auto open after SIGHUP is received
+* Release Web UI 2.2.19
+* Fix console type error when creating Ethernet switch node. Fixes #1873
+* Upgrade Jinja to version 2.11.3. Fixes #1865
+
+## 2.2.18 16/02/2021
+
+* SIGHUP: remove projects with an empty project directory.
+* Release Web UI 2.2.18
+* Catch OSError exception in psutil. Fixes https://github.com/GNS3/gns3-gui/issues/3127
+* Expose 'auto_open' and 'auto_start' properties in API when creating project. Fixes https://github.com/GNS3/gns3-gui/issues/3119
+* Add mtools package information. Ref https://github.com/GNS3/gns3-gui/issues/3076
+* Fix warning: 'ide-drive' is deprecated when using recent version of Qemu. Fixes https://github.com/GNS3/gns3-gui/issues/3101
+* Fix bug when starting of vpcs stopped with "quit". Fixes https://github.com/GNS3/gns3-gui/issues/3110
+* Fix WinError 0 handling
+* Stop uBridge if VPCS node has been terminated. Ref https://github.com/GNS3/gns3-gui/issues/3110
+* Allow cloned QEMU disk images to be resized before the node starts, by cloning the disk image in response to a resize request instead of waiting until the node starts.
+* Fix(readme): update python version from 3.5.3 to 3.6
+* Use HDD disk image as startup QEMU config disk
+* Create config disk property false by default for Qemu templates
+* Set default disk interface type to "none".
+* Add explicit option to automatically create or not the config disk. Off by default.
+* QEMU config disk support
+
+
 ## 2.2.17 04/12/2020
 
 * Close and remove projects deleted from disks after SIGHUP signal is received.
