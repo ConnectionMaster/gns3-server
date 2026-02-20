@@ -79,8 +79,10 @@ class Docker(BaseManager):
                         stderr=asyncio.subprocess.DEVNULL
                     )
                     stdout, _ = await proc.communicate()
-                    if proc.returncode == 1:
+                    if proc.returncode == 1 or "static" in busybox_exec:
                         # ldd returns 1 if the file is not a dynamic executable
+                        # on Alpine/musl, ldd returns 0 even for static binaries,
+                        # so also trust binaries named busybox-static or busybox.static
                         log.info(f"Installing busybox from '{busybox_path}' to '{dst_busybox}'")
                         shutil.copy2(busybox_path, dst_busybox, follow_symlinks=True)
                         return
