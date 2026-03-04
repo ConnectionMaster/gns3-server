@@ -20,6 +20,7 @@ import socket
 import asyncio
 import asyncio.subprocess
 import struct
+import re
 
 import logging
 log = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ NAWS = 31     # Negotiate About Window Size
 LINEMO = 34     # Line Mode
 
 READ_SIZE = 1024
+CPR_RESPONSE = re.compile(br"\x1b\[[0-9]{1,4}(;[0-9]{1,4})?R")
 
 
 class TelnetConnection(object):
@@ -285,6 +287,11 @@ class AsyncioTelnetServer:
 
                     if IAC in data:
                         data = await self._IAC_parser(data, network_reader, network_writer, connection)
+
+                    # Some terminal clients may send ANSI cursor position reports
+                    # (e.g. ESC[1;80R) when attaching to a serial console. Those
+                    # responses can show up as spurious characters at the shell prompt.
+                    data = CPR_RESPONSE.sub(b"", data)
 
                     if len(data) == 0:
                         continue
