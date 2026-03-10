@@ -592,14 +592,14 @@ async def test_iou_template_create(controller_api):
                          "default_name_format": "IOU{0}",
                          "ethernet_adapters": 2,
                          "name": "IOU template",
-                         "nvram": 128,
+                         "nvram": 256,
                          "path": "/path/to/i86bi_linux-ipbase-ms-12.4.bin",
                          "private_config": "",
-                         "ram": 256,
+                         "ram": 1024,
                          "serial_adapters": 2,
                          "startup_config": "iou_l3_base_startup-config.txt",
                          "symbol": ":/symbols/multilayer_switch.svg",
-                         "use_default_iou_values": True,
+                         "use_default_iou_values": False,
                          "l1_keepalives": False}
 
     for item, value in expected_response.items():

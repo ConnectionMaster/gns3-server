@@ -43,17 +43,17 @@ IOU_TEMPLATE_PROPERTIES = {
     "ram": {
         "description": "RAM in MB",
         "type": "integer",
-        "default": 256
+        "default": 1024
     },
     "nvram": {
         "description": "NVRAM in KB",
         "type": "integer",
-        "default": 128
+        "default": 256
     },
     "use_default_iou_values": {
         "description": "Use default IOU values",
         "type": "boolean",
-        "default": True
+        "default": False
     },
     "startup_config": {
         "description": "Startup-config of IOU",
