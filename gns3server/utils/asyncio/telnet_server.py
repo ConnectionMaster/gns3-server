@@ -215,7 +215,7 @@ class AsyncioTelnetServer:
             await self._write_intro(network_writer, echo=self._echo, binary=self._binary, naws=self._naws)
             await connection.connected()
             await self._process(network_reader, network_writer, connection)
-        except ConnectionError:
+        except (ConnectionError, OSError):
             async with self._lock:
                 network_writer.close()
                 # await network_writer.wait_closed()  # this doesn't work in Python 3.6
@@ -308,14 +308,15 @@ class AsyncioTelnetServer:
 
                     # Replicate the output on all clients
                     for connection_key in list(self._connections.keys()):
-                        client_info = connection_key.get_extra_info("socket").getpeername()
                         connection = self._connections[connection_key]
+                        client_info = None
 
                         try:
+                            client_info = connection_key.get_extra_info("socket").getpeername()
                             connection.writer.write(data)
                             await asyncio.wait_for(connection.writer.drain(), timeout=10)
-                        except:
-                            log.debug(f"Timeout while sending data to client: {client_info}, closing and removing from connection table.")
+                        except (OSError, ConnectionError, asyncio.TimeoutError) as e:
+                            log.debug(f"Error sending data to client {client_info}: {e}, closing and removing from connection table.")
                             connection.close()
                             del self._connections[connection_key]
 
