@@ -84,9 +84,9 @@ class Port:
         # If port name format has changed we use the port name as the short name (1.X behavior)
         if self._short_name:
             return self._short_name
-        elif '/' in self._name:
+        elif self._name and '/' in self._name:
             return self._name.replace(self.long_name_type(), self.short_name_type())
-        elif self._name.startswith("{}{}".format(self.long_name_type(), self._interface_number)):
+        elif self._name and self._name.startswith("{}{}".format(self.long_name_type(), self._interface_number)):
             return self.short_name_type() + "{}".format(self._interface_number)
         return self._name
 
