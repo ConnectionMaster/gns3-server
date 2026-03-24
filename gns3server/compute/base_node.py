@@ -312,8 +312,10 @@ class BaseNode:
         Stop the node process.
         """
 
-        await self.stop_wrap_console()
-        self.status = "stopped"
+        try:
+            await self.stop_wrap_console()
+        finally:
+            self.status = "stopped"
 
     def suspend(self):
         """

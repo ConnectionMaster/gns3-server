@@ -87,11 +87,11 @@ class IOUVM(BaseNode):
         self._serial_adapters = []
         self.ethernet_adapters = 2  # one adapter = 4 interfaces
         self.serial_adapters = 2  # one adapter = 4 interfaces
-        self._use_default_iou_values = True  # for RAM & NVRAM values
-        self._nvram = 128  # Kilobytes
+        self._use_default_iou_values = False  # for RAM & NVRAM values
+        self._nvram = 256  # Kilobytes
         self._startup_config = ""
         self._private_config = ""
-        self._ram = 256  # Megabytes
+        self._ram = 1024  # Megabytes
         self._application_id = application_id
         self._l1_keepalives = False  # used to overcome the always-up Ethernet interfaces (not supported by all IOSes).
 

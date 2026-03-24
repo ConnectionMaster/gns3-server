@@ -69,8 +69,8 @@ async def test_iou_create(compute_api, compute_project, base_params):
     assert response.json["project_id"] == compute_project.id
     assert response.json["serial_adapters"] == 2
     assert response.json["ethernet_adapters"] == 2
-    assert response.json["ram"] == 256
-    assert response.json["nvram"] == 128
+    assert response.json["ram"] == 1024
+    assert response.json["nvram"] == 256
     assert response.json["l1_keepalives"] is False
 
 
@@ -130,8 +130,8 @@ async def test_iou_get(compute_api, compute_project, vm):
     assert response.json["project_id"] == compute_project.id
     assert response.json["serial_adapters"] == 2
     assert response.json["ethernet_adapters"] == 2
-    assert response.json["ram"] == 256
-    assert response.json["nvram"] == 128
+    assert response.json["ram"] == 1024
+    assert response.json["nvram"] == 256
     assert response.json["l1_keepalives"] is False
 
 
