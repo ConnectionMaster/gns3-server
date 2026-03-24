@@ -587,7 +587,7 @@ class DockerVM(BaseNode):
             raise DockerError("Could not start auxiliary console process: {}".format(e))
         server = AsyncioTelnetServer(reader=process.stdout, writer=process.stdin, binary=True, echo=True)
         try:
-            self._telnet_servers.append((await asyncio.start_server(server.run, self._manager.port_manager.console_host, self.aux)))
+            self._telnet_servers.append(await server.start(self._manager.port_manager.console_host, self.aux))
         except OSError as e:
             raise DockerError("Could not start Telnet server on socket {}:{}: {}".format(self._manager.port_manager.console_host, self.aux, e))
         log.debug("Docker container '%s' started listen for auxiliary telnet on %d", self.name, self.aux)
@@ -747,7 +747,7 @@ class DockerVM(BaseNode):
         input_stream = InputStream()
         telnet = AsyncioTelnetServer(reader=output_stream, writer=input_stream, echo=True, naws=True, window_size_changed_callback=self._window_size_changed_callback)
         try:
-            self._telnet_servers.append((await asyncio.start_server(telnet.run, self._manager.port_manager.console_host, self.console)))
+            self._telnet_servers.append(await telnet.start(self._manager.port_manager.console_host, self.console))
         except OSError as e:
             raise DockerError("Could not start Telnet server on socket {}:{}: {}".format(self._manager.port_manager.console_host, self.console, e))
 
