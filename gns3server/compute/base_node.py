@@ -397,7 +397,11 @@ class BaseNode:
             echo=True
         )
         # warning: this will raise OSError exception if there is a problem...
-        self._wrapper_telnet_server = await server.start(self._manager.port_manager.console_host, self.console)
+        self._wrapper_telnet_server = await asyncio.start_server(
+            server.run,
+            self._manager.port_manager.console_host,
+            self.console
+        )
 
     async def stop_wrap_console(self):
         """
