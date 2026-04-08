@@ -63,4 +63,4 @@ async def test_create_snapshot(controller_api, project):
 
     response = await controller_api.post("/projects/{}/snapshots".format(project.id), {"name": "snap1"})
     assert response.status == 201
-    assert len(os.listdir(os.path.join(project.path, "snapshots"))) == 1
+    assert len(os.listdir(os.path.join(project.path, "snapshots"))) == 2

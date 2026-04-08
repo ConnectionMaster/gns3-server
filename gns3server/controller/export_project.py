@@ -87,6 +87,10 @@ async def export_project(zstream, project, temporary_dir, include_images=False, 
             # save empty directories
             for directory in dirs:
                 path = os.path.join(root, directory)
+                if path == temporary_dir:
+                    continue
+                if include_snapshots is False and path.endswith("snapshots"):
+                    continue
                 if not os.listdir(path):
                     zstream.write(path, os.path.relpath(path, project._path))
         except FileNotFoundError as e:
@@ -142,7 +146,7 @@ def _is_exportable(path, include_snapshots=False):
     """
 
     # do not export snapshots by default
-    if include_snapshots is False and path.endswith("snapshots"):
+    if include_snapshots is False and os.path.dirname(path).endswith("snapshots"):
         return False
 
     # do not export directories of snapshots

@@ -96,6 +96,7 @@ class Project:
         self._show_interface_labels = show_interface_labels
         self._variables = variables
         self._supplier = supplier
+        self._snapshots_config_file = "snapshots.conf"
 
         self._loading = False
         self._closing = False
@@ -189,19 +190,7 @@ class Project:
         self._drawings = {}
         self._snapshots = {}
         self._computes = []
-
-        # List the available snapshots
-        snapshot_dir = os.path.join(self.path, "snapshots")
-        if os.path.exists(snapshot_dir):
-            for snap in os.listdir(snapshot_dir):
-                if snap.endswith(".gns3project"):
-                    try:
-                        snapshot = Snapshot(self, filename=snap)
-                    except ValueError:
-                        log.error("Invalid snapshot file: {}".format(snap))
-                        continue
-                    self._snapshots[snapshot.id] = snapshot
-
+        self._load_snapshot_config()
         # Create the project on demand on the compute node
         self._project_created_on_compute = set()
 
@@ -782,6 +771,62 @@ class Project:
         except KeyError:
             raise aiohttp.web.HTTPNotFound(text="Snapshot ID {} doesn't exist".format(snapshot_id))
 
+    def _load_snapshot_config(self):
+
+        snapshot_dir = os.path.join(self.path, "snapshots")
+        self._snapshot_conf_path = os.path.join(snapshot_dir, self._snapshots_config_file)
+        self._snapshot_conf = []
+        if os.path.isfile(self._snapshot_conf_path):
+            try:
+                with open(self._snapshot_conf_path, encoding="utf-8") as f:
+                    self._snapshot_conf = json.load(f)
+            except (OSError, UnicodeDecodeError, ValueError) as e:
+                raise aiohttp.web.HTTPConflict(text="Could not read snapshot config {}: {}".format(self._snapshot_conf_path, str(e)))
+
+        # Load all legacy snapshots (.gns3project files) to create an initial snapshot config if it doesn't exist
+        if os.path.exists(snapshot_dir) and not self._snapshot_conf:
+            for snap in os.listdir(snapshot_dir):
+                if snap.endswith(".gns3project"):
+                    try:
+                        snapshot = Snapshot(self, filename=snap)
+                    except ValueError:
+                        log.error("Invalid snapshot file: {}".format(snap))
+                        continue
+                    self._snapshots[snapshot.id] = snapshot
+        else:
+            # Create the snapshot instances from the snapshot config file
+            for snapshot_entry in self._snapshot_conf:
+                try:
+                    name = snapshot_entry["name"]
+                    snapshot_id = snapshot_entry["snapshot_id"]
+                    created_at = snapshot_entry["created_at"]
+                    filename = snapshot_entry["filename"]
+                    path = os.path.join(snapshot_dir, filename)
+                    if not os.path.isfile(path):
+                        log.warning("Snapshot file '{}' does not exist".format(path))
+                        continue
+                    snapshot = Snapshot(self, name=name, filename=filename, snapshot_id=snapshot_id, created_at=created_at)
+                    self._snapshots[snapshot.id] = snapshot
+                except KeyError:
+                    log.error("Invalid entry in snapshot config file: {}".format(snapshot_entry))
+                    continue
+
+        self._save_snapshot_config()
+
+    def _save_snapshot_config(self):
+
+        if not self._snapshots:
+            return
+
+        self._snapshot_conf = []
+        for snapshot in self._snapshots.values():
+            self._snapshot_conf.append(snapshot.__json__())
+        try:
+            with open(self._snapshot_conf_path, 'w+') as f:
+                json.dump(self._snapshot_conf, f, indent=4)
+        except OSError as e:
+            log.error("Cannot write snapshot config '{}': {}".format(self._snapshot_conf_path, e))
+
     @open_required
     async def snapshot(self, name):
         """
@@ -795,12 +840,14 @@ class Project:
         snapshot = Snapshot(self, name=name)
         await snapshot.create()
         self._snapshots[snapshot.id] = snapshot
+        self._save_snapshot_config()
         return snapshot
 
     @open_required
     async def delete_snapshot(self, snapshot_id):
         snapshot = self.get_snapshot(snapshot_id)
         del self._snapshots[snapshot.id]
+        self._save_snapshot_config()
         os.remove(snapshot.path)
 
     @locking

@@ -44,21 +44,31 @@ class Snapshot:
     A snapshot object
     """
 
-    def __init__(self, project, name=None, filename=None):
+    def __init__(self, project, snapshot_id=None, name=None, filename=None, created_at=None):
 
         assert filename or name, "You need to pass a name or a filename"
 
-        self._id = str(uuid.uuid4())  # We don't need to keep id between project loading because they are use only as key for operation like delete, update.. but have no impact on disk
+        if snapshot_id:
+            self._id = snapshot_id
+        else:
+            self._id = str(uuid.uuid4())
+
         self._project = project
         if name:
             self._name = name
-            self._created_at = datetime.now(timezone.utc).timestamp()
-            filename = self._name + "_" + datetime.fromtimestamp(self._created_at, tz=timezone.utc).replace(tzinfo=None).strftime(FILENAME_TIME_FORMAT) + ".gns3project"
+
+            if created_at:
+                self._created_at = created_at
+            else:
+                self._created_at = int(datetime.now(timezone.utc).timestamp())
+            if not filename:
+                filename = self._name + ".gns3snapshot"
         else:
             self._name = filename.rsplit("_", 2)[0]
             datestring = filename.replace(self._name + "_", "").split(".")[0]
-            self._created_at = datetime.strptime(datestring, FILENAME_TIME_FORMAT).replace(tzinfo=timezone.utc).timestamp()
+            self._created_at = int(datetime.strptime(datestring, FILENAME_TIME_FORMAT).replace(tzinfo=timezone.utc).timestamp())
 
+        self._filename = filename
         self._path = os.path.join(project.path, "snapshots", filename)
 
     @property
@@ -119,9 +129,14 @@ class Snapshot:
             if os.path.exists(project_files_path):
                 await wait_run_in_executor(shutil.rmtree, project_files_path)
             with open(self._path, "rb") as f:
-                project = await import_project(self._project.controller, self._project.id, f, location=self._project.path,
-                                               auto_start=self._project.auto_start, auto_open=self._project.auto_open,
-                                               auto_close=self._project.auto_close)
+                project = await import_project(
+                    self._project.controller,
+                    self._project.id,
+                    f,
+                    location=self._project.path,
+                    auto_start=self._project.auto_start, auto_open=self._project.auto_open,
+                    auto_close=self._project.auto_close
+                )
         except (OSError, PermissionError) as e:
             raise aiohttp.web.HTTPConflict(text=str(e))
         await project.open()
@@ -132,6 +147,7 @@ class Snapshot:
         return {
             "snapshot_id": self._id,
             "name": self._name,
-            "created_at": int(self._created_at),
+            "created_at": self._created_at,
+            "filename": self._filename,
             "project_id": self._project.id
         }

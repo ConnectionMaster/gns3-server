@@ -50,7 +50,12 @@ SNAPSHOT_OBJECT_SCHEMA = {
             "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"
         },
         "name": {
-            "description": "Project name",
+            "description": "Snapshot name",
+            "type": "string",
+            "minLength": 1
+        },
+        "filename": {
+            "description": "Snapshot filename",
             "type": "string",
             "minLength": 1
         },
@@ -60,5 +65,5 @@ SNAPSHOT_OBJECT_SCHEMA = {
         }
     },
     "additionalProperties": False,
-    "required": ["snapshot_id", "name", "created_at", "project_id"]
+    "required": ["snapshot_id", "name", "filename", "created_at", "project_id"]
 }
