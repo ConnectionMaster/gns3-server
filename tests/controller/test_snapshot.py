@@ -94,7 +94,8 @@ async def test_restore(project, controller):
     response.json = {"console": 2048}
     compute.post = AsyncioMagicMock(return_value=response)
 
-    await project.add_node(compute, "test1", None, node_type="vpcs", properties={"startup_config": "test.cfg"})
+    node1_id = str(uuid4())
+    await project.add_node(compute, "test1", node1_id, node_type="vpcs", properties={"startup_config": "test.cfg"})
     snapshot = await project.snapshot(name="test")
 
     # We add a node after the snapshots
@@ -112,8 +113,11 @@ async def test_restore(project, controller):
     with patch("gns3server.config.Config.get_section_config", return_value={"local": True}):
         await snapshot.restore()
 
+    # make sure the original node IDs are restored
+    assert list(project.nodes.keys())[0] == node1_id
+
     assert "snapshot.restored" in [c[0][0] for c in controller.notification.project_emit.call_args_list]
-    # project.closed notification should not be send when restoring snapshots
+    # project.closed notification should not be sent when restoring snapshots
     assert "project.closed" not in [c[0][0] for c in controller.notification.project_emit.call_args_list]
 
     project = controller.get_project(project.id)

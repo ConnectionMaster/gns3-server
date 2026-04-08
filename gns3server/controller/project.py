@@ -959,7 +959,7 @@ class Project:
         Load topology elements
         """
 
-        if self._closing is True:
+        if self._closing:
             raise aiohttp.web.HTTPConflict(text="Project is closing, please try again in a few seconds...")
 
         if self._status == "opened":

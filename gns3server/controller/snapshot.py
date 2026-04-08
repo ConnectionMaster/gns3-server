@@ -134,7 +134,10 @@ class Snapshot:
                     self._project.id,
                     f,
                     location=self._project.path,
-                    auto_start=self._project.auto_start, auto_open=self._project.auto_open,
+                    project_name=self._project.name,
+                    restoring_snapshot=True,
+                    auto_start=self._project.auto_start,
+                    auto_open=self._project.auto_open,
                     auto_close=self._project.auto_close
                 )
         except (OSError, PermissionError) as e:

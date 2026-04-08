@@ -39,8 +39,19 @@ Handle the import of project from a .gns3project
 """
 
 
-async def import_project(controller, project_id, stream, location=None, name=None, keep_compute_ids=False,
-                         auto_start=False, auto_open=False, auto_close=True):
+async def import_project(
+        controller,
+        project_id,
+        stream,
+        location=None,
+        name=None,
+        keep_compute_ids=False,
+        restoring_snapshot=False,
+        project_name=None,
+        auto_start=False,
+        auto_open=False,
+        auto_close=True
+):
     """
     Import a project contain in a zip file
 
@@ -52,6 +63,8 @@ async def import_project(controller, project_id, stream, location=None, name=Non
     :param location: Directory for the project if None put in the default directory
     :param name: Wanted project name, generate one from the .gns3 if None
     :param keep_compute_ids: keep compute IDs unchanged
+    :param restoring_snapshot: True if the project is imported as part of a snapshot restore, False otherwise
+    :param project_name: Original project name when restoring a snapshot
 
     :returns: Project
     """
@@ -69,10 +82,7 @@ async def import_project(controller, project_id, stream, location=None, name=Non
 
     try:
         topology = json.loads(project_file)
-        # We import the project on top of an existing project (snapshots)
-        if topology["project_id"] == project_id:
-            project_name = topology["name"]
-        else:
+        if not project_name:
             # If the project name is already used we generate a new one
             if name:
                 project_name = controller.get_free_project_name(name)
@@ -105,27 +115,30 @@ async def import_project(controller, project_id, stream, location=None, name=Non
     topology["auto_open"] = auto_open
     topology["auto_close"] = auto_close
 
-    # Generate a new node id
-    node_old_to_new = {}
-    for node in topology["topology"]["nodes"]:
-        if "node_id" in node:
-            node_old_to_new[node["node_id"]] = str(uuid.uuid4())
-            _move_node_file(path, node["node_id"], node_old_to_new[node["node_id"]])
-            node["node_id"] = node_old_to_new[node["node_id"]]
-        else:
-            node["node_id"] = str(uuid.uuid4())
+    if not restoring_snapshot:
+        # Do not re-generate IDs if we are restoring a snapshot because they should be the same as the main project
 
-    # Update link to use new id
-    for link in topology["topology"]["links"]:
-        link["link_id"] = str(uuid.uuid4())
-        for node in link["nodes"]:
-            node["node_id"] = node_old_to_new[node["node_id"]]
+        # Generate a new node id
+        node_old_to_new = {}
+        for node in topology["topology"]["nodes"]:
+            if "node_id" in node:
+                node_old_to_new[node["node_id"]] = str(uuid.uuid4())
+                _move_node_file(path, node["node_id"], node_old_to_new[node["node_id"]])
+                node["node_id"] = node_old_to_new[node["node_id"]]
+            else:
+                node["node_id"] = str(uuid.uuid4())
 
-    # Generate new drawings id
-    for drawing in topology["topology"]["drawings"]:
-        drawing["drawing_id"] = str(uuid.uuid4())
+        # Update link to use new id
+        for link in topology["topology"]["links"]:
+            link["link_id"] = str(uuid.uuid4())
+            for node in link["nodes"]:
+                node["node_id"] = node_old_to_new[node["node_id"]]
 
-    # Modify the compute id of the node depending of compute capacity
+        # Generate new drawings id
+        for drawing in topology["topology"]["drawings"]:
+            drawing["drawing_id"] = str(uuid.uuid4())
+
+    # Modify the compute id of the node depending on compute capacity
     if not keep_compute_ids:
         # For some VM type we move them to the GNS3 VM if possible
         # unless it's a linux host without GNS3 VM
