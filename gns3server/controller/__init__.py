@@ -217,7 +217,7 @@ class Controller:
         try:
             os.makedirs(os.path.dirname(self._config_file), exist_ok=True)
             with open(self._config_file, 'w+') as f:
-                json.dump(controller_settings, f, indent=4)
+                json.dump(controller_settings, f, indent=4, sort_keys=True)
         except OSError as e:
             log.error("Cannot write controller configuration file '{}': {}".format(self._config_file, e))
 

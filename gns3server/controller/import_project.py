@@ -117,26 +117,7 @@ async def import_project(
 
     if not restoring_snapshot:
         # Do not re-generate IDs if we are restoring a snapshot because they should be the same as the main project
-
-        # Generate a new node id
-        node_old_to_new = {}
-        for node in topology["topology"]["nodes"]:
-            if "node_id" in node:
-                node_old_to_new[node["node_id"]] = str(uuid.uuid4())
-                _move_node_file(path, node["node_id"], node_old_to_new[node["node_id"]])
-                node["node_id"] = node_old_to_new[node["node_id"]]
-            else:
-                node["node_id"] = str(uuid.uuid4())
-
-        # Update link to use new id
-        for link in topology["topology"]["links"]:
-            link["link_id"] = str(uuid.uuid4())
-            for node in link["nodes"]:
-                node["node_id"] = node_old_to_new[node["node_id"]]
-
-        # Generate new drawings id
-        for drawing in topology["topology"]["drawings"]:
-            drawing["drawing_id"] = str(uuid.uuid4())
+        regenerate_ids(topology, path, reset_mac_addresses=True)
 
     # Modify the compute id of the node depending on compute capacity
     if not keep_compute_ids:
@@ -175,7 +156,7 @@ async def import_project(
     # We change the project_id to avoid erasing the project
     topology["project_id"] = project_id
     with open(dot_gns3_path, "w+") as f:
-        json.dump(topology, f, indent=4)
+        json.dump(topology, f, indent=4, sort_keys=True)
     os.remove(os.path.join(path, "project.gns3"))
 
     images_path = os.path.join(path, "images")
@@ -183,8 +164,8 @@ async def import_project(
         await _import_images(controller, images_path)
 
     snapshots_path = os.path.join(path, "snapshots")
-    if os.path.exists(snapshots_path):
-        await _import_snapshots(snapshots_path, project_name, project_id)
+    if not restoring_snapshot and os.path.exists(snapshots_path):
+        await update_snapshots(snapshots_path, path, project_name, project_id)
 
     project = await controller.load_project(dot_gns3_path, load=False)
     return project
@@ -207,6 +188,40 @@ def _create_symbolic_links(zip_file, path):
                 os.symlink(symlink_target, symlink_path)
             except OSError as e:
                 raise aiohttp.web.HTTPConflict(text=f"Cannot create symbolic link: {e}")
+
+def regenerate_ids(topology, new_project_path, reset_mac_addresses=False):
+    """
+    Regenerate IDs in the topology and move the files of the nodes to match the new IDs
+
+    :param topology: topology content
+    :param new_project_path: new project path
+    :param reset_mac_addresses: reset MAC addresses
+    """
+
+    # Generate new node IDs
+    node_old_to_new = {}
+    for node in topology["topology"]["nodes"]:
+        new_node_id = str(uuid.uuid4())
+        if "node_id" in node:
+            node_old_to_new[node["node_id"]] = new_node_id
+            _move_node_file(new_project_path, node["node_id"], new_node_id)
+        node["node_id"] = new_node_id
+        if reset_mac_addresses:
+            if "properties" in node:
+                for prop, value in node["properties"].items():
+                    # reset the MAC address
+                    if prop in ("mac_addr", "mac_address"):
+                        node["properties"][prop] = None
+
+    # Generate new link IDs
+    for link in topology["topology"]["links"]:
+        link["link_id"] = str(uuid.uuid4())
+        for node in link["nodes"]:
+            node["node_id"] = node_old_to_new[node["node_id"]]
+
+    # Generate new drawings IDs
+    for drawing in topology["topology"]["drawings"]:
+        drawing["drawing_id"] = str(uuid.uuid4())
 
 def _move_node_file(path, old_id, new_id):
     """
@@ -274,16 +289,17 @@ async def _import_images(controller, images_path):
             await wait_run_in_executor(shutil.move, path, dst)
 
 
-async def _import_snapshots(snapshots_path, project_name, project_id):
+async def update_snapshots(snapshots_dir, project_path, project_name, project_id):
     """
-    Import the snapshots and update their project name and ID to be the same as the main project.
+    Load the snapshots and update their project name and project ID to be the same as the main project.
+    Regenerate all the node, link and drawing IDs
     """
 
-    for snapshot in os.listdir(snapshots_path):
-        if not snapshot.endswith(".gns3project"):
+    for snapshot in os.listdir(snapshots_dir):
+        if not (snapshot.endswith(".gns3snapshot") or snapshot.endswith(".gns3project")):
             continue
-        snapshot_path = os.path.join(snapshots_path, snapshot)
-        with tempfile.TemporaryDirectory(dir=snapshots_path) as tmpdir:
+        snapshot_path = os.path.join(snapshots_dir, snapshot)
+        with tempfile.TemporaryDirectory(dir=snapshots_dir) as tmpdir:
 
             # extract everything to a temporary directory
             try:
@@ -301,9 +317,9 @@ async def _import_snapshots(snapshots_path, project_name, project_id):
                 topology_file_path = os.path.join(tmpdir, "project.gns3")
                 with open(topology_file_path, encoding="utf-8") as f:
                     topology = json.load(f)
-
                     topology["name"] = project_name
                     topology["project_id"] = project_id
+                    regenerate_ids(topology, project_path, reset_mac_addresses=False)
                 with open(topology_file_path, "w+", encoding="utf-8") as f:
                     json.dump(topology, f, indent=4, sort_keys=True)
             except OSError as e:
@@ -321,5 +337,6 @@ async def _import_snapshots(snapshots_path, project_name, project_id):
                     async with aiofiles.open(snapshot_path, 'wb+') as f:
                         async for chunk in zstream:
                             await f.write(chunk)
+                log.info("Project '{}': updated and repacked snapshot file '{}'".format(project_name, snapshot))
             except OSError as e:
                 raise aiohttp.web.HTTPConflict(text="Cannot update snapshot '{}': the snapshot cannot be recreated: {}".format(os.path.basename(snapshot), e))
