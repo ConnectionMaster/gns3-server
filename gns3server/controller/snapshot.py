@@ -35,16 +35,18 @@ import logging
 log = logging.getLogger(__name__)
 
 
-# The string use to extract the date from the filename
-FILENAME_TIME_FORMAT = "%d%m%y_%H%M%S"
+# Used to extract the date and time from the filename
+FILENAME_DATETIME_FORMAT = "%d%m%y_%H%M%S"
 
+# Used to create a description of the snapshot with a human-readable date and time
+DESCRIPTION_DATETIME_FORMAT = "%Y-%m-%d at %H:%M:%S"
 
 class Snapshot:
     """
     A snapshot object
     """
 
-    def __init__(self, project, snapshot_id=None, name=None, filename=None, created_at=None):
+    def __init__(self, project, snapshot_id=None, name=None, filename=None, created_at=None, description=None):
 
         assert filename or name, "You need to pass a name or a filename"
 
@@ -66,8 +68,13 @@ class Snapshot:
         else:
             self._name = filename.rsplit("_", 2)[0]
             datestring = filename.replace(self._name + "_", "").split(".")[0]
-            self._created_at = int(datetime.strptime(datestring, FILENAME_TIME_FORMAT).replace(tzinfo=timezone.utc).timestamp())
+            self._created_at = int(datetime.strptime(datestring, FILENAME_DATETIME_FORMAT).replace(tzinfo=timezone.utc).timestamp())
 
+        if not description:
+            date = datetime.fromtimestamp(self._created_at, tz=timezone.utc).replace(tzinfo=None).strftime(DESCRIPTION_DATETIME_FORMAT)
+            description = "Snapshot '{}' taken on {}".format(self._name, date)
+
+        self._description = description
         self._filename = filename
         self._path = os.path.join(project.path, "snapshots", filename)
 
@@ -80,12 +87,16 @@ class Snapshot:
         return self._name
 
     @property
+    def description(self):
+        return self._description
+
+    @property
     def path(self):
         return self._path
 
     @property
     def created_at(self):
-        return int(self._created_at)
+        return self._created_at
 
     async def create(self):
         """
@@ -150,6 +161,7 @@ class Snapshot:
         return {
             "snapshot_id": self._id,
             "name": self._name,
+            "description": self._description,
             "created_at": self._created_at,
             "filename": self._filename,
             "project_id": self._project.id

@@ -65,6 +65,7 @@ def test_json(project):
         "snapshot_id": snapshot._id,
         "name": "snapshot_test",
         "project_id": project.id,
+        "description": "Snapshot 'snapshot_test' taken on 2016-07-26 at 10:04:39",
         "filename": "snapshot_test_260716_100439.gns3project",
         "created_at": 1469527479
     }
@@ -76,6 +77,7 @@ def test_json(project):
         "name": "snapshot_test2",
         "project_id": project.id,
         "filename": "snapshot_test2.gns3snapshot",
+        "description": mock.ANY,
         "created_at": mock.ANY
     }
 
