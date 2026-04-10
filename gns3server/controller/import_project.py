@@ -84,7 +84,6 @@ async def import_project(
         # We import the project on top of an existing project (snapshots)
         if topology["project_id"] == project_id:
             project_name = topology["name"]
-            log.info("Restoring snapshot for project '{}', snapshot name: '{}'".format(project_id, project_name))
             restoring_snapshot = True
         else:
             # If the project name is already used we generate a new one
