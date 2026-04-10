@@ -382,6 +382,7 @@ class Node:
                 await self.parse_node_response(response.json)
                 return True
             trial += 1
+        return False
 
     async def update(self, **kwargs):
         """

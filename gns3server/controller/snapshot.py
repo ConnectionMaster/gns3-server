@@ -135,6 +135,7 @@ class Snapshot:
         await self._project.close(ignore_notification=True)
 
         try:
+            begin = time.time()
             # delete the current project files
             project_files_path = os.path.join(self._project.path, "project-files")
             if os.path.exists(project_files_path):
@@ -145,12 +146,11 @@ class Snapshot:
                     self._project.id,
                     f,
                     location=self._project.path,
-                    project_name=self._project.name,
-                    restoring_snapshot=True,
                     auto_start=self._project.auto_start,
                     auto_open=self._project.auto_open,
                     auto_close=self._project.auto_close
                 )
+            log.info("Snapshot '{}' restored in {:.4f} seconds".format(self.name, time.time() - begin))
         except (OSError, PermissionError) as e:
             raise aiohttp.web.HTTPConflict(text=str(e))
         await project.open()
@@ -161,8 +161,8 @@ class Snapshot:
         return {
             "snapshot_id": self._id,
             "name": self._name,
-            "description": self._description,
             "created_at": self._created_at,
+            "description": self._description,
             "filename": self._filename,
             "project_id": self._project.id
         }

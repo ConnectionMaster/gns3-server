@@ -45,12 +45,11 @@ async def import_project(
         stream,
         location=None,
         name=None,
+        reset_mac_addresses=False,
         keep_compute_ids=False,
-        restoring_snapshot=False,
-        project_name=None,
         auto_start=False,
         auto_open=False,
-        auto_close=True
+        auto_close=True,
 ):
     """
     Import a project contain in a zip file
@@ -62,8 +61,8 @@ async def import_project(
     :param stream: A io.BytesIO of the zipfile
     :param location: Directory for the project if None put in the default directory
     :param name: Wanted project name, generate one from the .gns3 if None
+    :param reset_mac_addresses: Reset MAC addresses for each node
     :param keep_compute_ids: keep compute IDs unchanged
-    :param restoring_snapshot: True if the project is imported as part of a snapshot restore, False otherwise
     :param project_name: Original project name when restoring a snapshot
 
     :returns: Project
@@ -82,12 +81,18 @@ async def import_project(
 
     try:
         topology = json.loads(project_file)
-        if not project_name:
+        # We import the project on top of an existing project (snapshots)
+        if topology["project_id"] == project_id:
+            project_name = topology["name"]
+            log.info("Restoring snapshot for project '{}', snapshot name: '{}'".format(project_id, project_name))
+            restoring_snapshot = True
+        else:
             # If the project name is already used we generate a new one
             if name:
                 project_name = controller.get_free_project_name(name)
             else:
                 project_name = controller.get_free_project_name(topology["name"])
+            restoring_snapshot = False
     except (ValueError, KeyError):
         raise aiohttp.web.HTTPConflict(text="Cannot import project, the project.gns3 file is corrupted")
 
@@ -116,8 +121,8 @@ async def import_project(
     topology["auto_close"] = auto_close
 
     if not restoring_snapshot:
-        # Do not re-generate IDs if we are restoring a snapshot because they should be the same as the main project
-        regenerate_ids(topology, path, reset_mac_addresses=True)
+        # Do not re-generate IDs if we are restoring a snapshot because they should be the same in a project
+        regenerate_topology_ids(topology, path, reset_mac_addresses=reset_mac_addresses)
 
     # Modify the compute id of the node depending on compute capacity
     if not keep_compute_ids:
@@ -129,14 +134,6 @@ async def import_project(
                     node["compute_id"] = "vm"
         else:
             # Round-robin through available compute resources.
-            # computes = []
-            # for compute_id in controller.computes:
-            #     compute = controller.get_compute(compute_id)
-            #     # only use the local compute or any connected compute
-            #     if compute_id == "local" or compute.connected:
-            #         computes.append(compute_id)
-            #     else:
-            #         log.warning(compute.name, "is not connected!")
             compute_nodes = itertools.cycle(controller.computes)
             for node in topology["topology"]["nodes"]:
                 node["compute_id"] = next(compute_nodes)
@@ -165,7 +162,7 @@ async def import_project(
 
     snapshots_path = os.path.join(path, "snapshots")
     if not restoring_snapshot and os.path.exists(snapshots_path):
-        await update_snapshots(snapshots_path, path, project_name, project_id)
+        await update_snapshots(snapshots_path, path, project_name, project_id, reset_mac_addresses=reset_mac_addresses)
 
     project = await controller.load_project(dot_gns3_path, load=False)
     return project
@@ -189,9 +186,10 @@ def _create_symbolic_links(zip_file, path):
             except OSError as e:
                 raise aiohttp.web.HTTPConflict(text=f"Cannot create symbolic link: {e}")
 
-def regenerate_ids(topology, new_project_path, reset_mac_addresses=False):
+def regenerate_topology_ids(topology, new_project_path, reset_mac_addresses=False):
     """
-    Regenerate IDs in the topology and move the files of the nodes to match the new IDs
+    Regenerate IDs in the topology and move the files of the nodes to match the new IDs.
+    This is necessary because IDs must be unique across projects.
 
     :param topology: topology content
     :param new_project_path: new project path
@@ -289,7 +287,7 @@ async def _import_images(controller, images_path):
             await wait_run_in_executor(shutil.move, path, dst)
 
 
-async def update_snapshots(snapshots_dir, project_path, project_name, project_id):
+async def update_snapshots(snapshots_dir, project_path, project_name, project_id, reset_mac_addresses=True):
     """
     Load the snapshots and update their project name and project ID to be the same as the main project.
     Regenerate all the node, link and drawing IDs
@@ -319,7 +317,7 @@ async def update_snapshots(snapshots_dir, project_path, project_name, project_id
                     topology = json.load(f)
                     topology["name"] = project_name
                     topology["project_id"] = project_id
-                    regenerate_ids(topology, project_path, reset_mac_addresses=False)
+                    regenerate_topology_ids(topology, project_path, reset_mac_addresses)
                 with open(topology_file_path, "w+", encoding="utf-8") as f:
                     json.dump(topology, f, indent=4, sort_keys=True)
             except OSError as e:

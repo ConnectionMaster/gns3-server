@@ -45,7 +45,7 @@ from ..utils.asyncio import locking
 from ..utils.asyncio import aiozipstream
 from ..utils.asyncio import wait_run_in_executor
 from .export_project import export_project
-from .import_project import import_project, update_snapshots, regenerate_ids
+from .import_project import import_project, update_snapshots, regenerate_topology_ids
 
 import logging
 log = logging.getLogger(__name__)
@@ -819,7 +819,7 @@ class Project:
             self._snapshot_conf.append(snapshot.__json__())
         try:
             with open(self._snapshot_conf_path, 'w+') as f:
-                json.dump(self._snapshot_conf, f, indent=4, sort_keys=True)
+                json.dump(self._snapshot_conf, f, indent=4)
         except OSError as e:
             log.error("Cannot write snapshot config '{}': {}".format(self._snapshot_conf_path, e))
 
@@ -1126,7 +1126,14 @@ class Project:
             with tempfile.TemporaryDirectory(dir=working_dir) as tmpdir:
                 # Do not compress the exported project when duplicating
                 with aiozipstream.ZipFile(compression=zipfile.ZIP_STORED) as zstream:
-                    await export_project(zstream, self, tmpdir, keep_compute_ids=True, allow_all_nodes=True, reset_mac_addresses=reset_mac_addresses)
+                    await export_project(
+                        zstream,
+                        self,
+                        tmpdir,
+                        keep_compute_ids=True,
+                        include_snapshots=True,
+                        allow_all_nodes=True
+                    )
 
                     # export the project to a temporary location
                     project_path = os.path.join(tmpdir, "project.gns3p")
@@ -1136,9 +1143,17 @@ class Project:
                             await f.write(chunk)
 
                     new_project_id = str(uuid.uuid4())
-                    # import the temporary project
+                    # import the duplicated project
                     with open(project_path, "rb") as f:
-                        project = await import_project(self._controller, new_project_id, f, location=location, name=name, keep_compute_ids=True)
+                        project = await import_project(
+                            self._controller,
+                            new_project_id,
+                            f,
+                            location=location,
+                            name=name,
+                            reset_mac_addresses=reset_mac_addresses,
+                            keep_compute_ids=True
+                        )
 
             log.info("Project '{}': duplicated in {:.4f} seconds".format(project.name, time.time() - begin))
         except (ValueError, OSError, UnicodeEncodeError) as e:
@@ -1157,7 +1172,7 @@ class Project:
 
         :param name: Name of the new project. A new one will be generated in case of conflicts
         :param location: Parent directory of the new project
-        :param reset_mac_addresses: Reset MAC addresses for the new project
+        :param reset_mac_addresses: Reset MAC addresses for the duplicated project
         """
 
         # remote replication is not supported with remote computes
@@ -1187,7 +1202,7 @@ class Project:
         topology["auto_close"] = False
 
         # regenerate IDs for the duplicated project
-        regenerate_ids(topology, new_project_path, reset_mac_addresses)
+        regenerate_topology_ids(topology, new_project_path, reset_mac_addresses)
 
         # dump the updated .gns3 project file
         dot_gns3_path = new_project_path.joinpath('{}.gns3'.format(project_name))
@@ -1303,11 +1318,13 @@ class Project:
         data['z'] = z
         data['locked'] = False  # duplicated node must not be locked
         new_node_uuid = str(uuid.uuid4())
-        new_node = await self.add_node(node.compute,
-                                       node.name,
-                                       new_node_uuid,
-                                       node_type=node_type,
-                                       **data)
+        new_node = await self.add_node(
+            node.compute,
+            node.name,
+            new_node_uuid,
+            node_type=node_type,
+            **data
+        )
         try:
             await node.post("/duplicate", timeout=None, data={
                 "destination_node_id": new_node_uuid
