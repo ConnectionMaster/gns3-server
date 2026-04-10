@@ -23,6 +23,7 @@ import json
 
 from unittest.mock import patch, MagicMock
 from tests.utils import asyncio_patch
+from gns3server.controller.node import Node
 
 
 @pytest.fixture
@@ -32,6 +33,14 @@ async def project(controller_api, controller):
     params = {"name": "test", "project_id": u}
     await controller_api.post("/projects", params)
     return controller.get_project(u)
+
+
+@pytest.fixture
+def node(project, compute):
+
+    node = Node(project, compute, "test", node_type="vpcs")
+    project._nodes[node.id] = node
+    return node
 
 
 async def test_create_project_with_path(controller_api, tmpdir):
@@ -295,7 +304,7 @@ async def test_export_without_images(controller_api, tmpdir, project):
         with myzip.open("a") as myfile:
             content = myfile.read()
             assert content == b"hello"
-        # Image should not exported
+        # Images should not be exported
         with pytest.raises(KeyError):
             myzip.getinfo("images/IOS/test.image")
 
@@ -356,8 +365,14 @@ async def test_import(controller_api, tmpdir, controller):
     assert content == "hello"
 
 
-async def test_duplicate(controller_api, project):
+async def test_duplicate(controller_api, controller, project, node):
 
-    response = await controller_api.post("/projects/{project_id}/duplicate".format(project_id=project.id), {"name": "hello"})
+    response = await controller_api.post("/projects/{project_id}/duplicate".format(project_id=project.id), {"name": "duplicated_project"})
     assert response.status == 201
-    assert response.json["name"] == "hello"
+    assert response.json["name"] == "duplicated_project"
+    duplicated_project_id = response.json["project_id"]
+    assert duplicated_project_id != project.id  # a new project_id should have been generated
+    duplicated_project = controller.get_project(duplicated_project_id)
+    with open(os.path.join(duplicated_project.path, "duplicated_project.gns3")) as f:
+        duplicated_topology = json.load(f)
+        assert duplicated_topology["topology"]["nodes"][0]["node_id"] != node.id  # a new node_id should have been generated

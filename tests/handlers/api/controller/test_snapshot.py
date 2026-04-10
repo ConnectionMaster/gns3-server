@@ -57,6 +57,7 @@ async def test_restore_snapshot(controller_api, project, snapshot):
     response = await controller_api.post("/projects/{}/snapshots/{}/restore".format(project.id, snapshot.id))
     assert response.status == 201
     assert response.json["name"] == project.name
+    assert response.json["project_id"] == project.id
 
 
 async def test_create_snapshot(controller_api, project):
