@@ -32,7 +32,16 @@ log = logging.getLogger(__name__)
 CHUNK_SIZE = 1024 * 8  # 8KB
 
 
-async def export_project(zstream, project, temporary_dir, include_images=False, include_snapshots=False, keep_compute_ids=False, allow_all_nodes=False, reset_mac_addresses=False):
+async def export_project(
+        zstream,
+        project,
+        temporary_dir,
+        include_images=False,
+        include_snapshots=False,
+        keep_compute_ids=False,
+        allow_all_nodes=False,
+        reset_mac_addresses=False
+):
     """
     Export a project to a zip file.
 
@@ -46,7 +55,7 @@ async def export_project(zstream, project, temporary_dir, include_images=False, 
     :param include_snapshots: save snapshots to the zip file
     :param keep_compute_ids: If false replace all compute IDs y local (standard behavior for .gns3project to make it portable)
     :param allow_all_nodes: Allow all nodes type to be included in the zip even if not portable
-    :param reset_mac_addresses: Reset MAC addresses for each node.
+    :param reset_mac_addresses: Reset MAC addresses for each node
     """
 
     # To avoid issue with data not saved we disallow the export of a running project
@@ -62,7 +71,16 @@ async def export_project(zstream, project, temporary_dir, include_images=False, 
     # First we process the .gns3 in order to be sure we don't have an error
     for file in os.listdir(project._path):
         if file.endswith(".gns3"):
-            await _patch_project_file(project, os.path.join(project._path, file), zstream, include_images, keep_compute_ids, allow_all_nodes, temporary_dir, reset_mac_addresses)
+            await _patch_project_file(
+                project,
+                os.path.join(project._path, file),
+                zstream,
+                include_images,
+                keep_compute_ids,
+                allow_all_nodes,
+                temporary_dir,
+                reset_mac_addresses
+            )
 
     # Export the local files
     for root, dirs, files in os.walk(project._path, topdown=True, followlinks=False):
@@ -87,6 +105,10 @@ async def export_project(zstream, project, temporary_dir, include_images=False, 
             # save empty directories
             for directory in dirs:
                 path = os.path.join(root, directory)
+                if path == temporary_dir:
+                    continue
+                if include_snapshots is False and path.endswith("snapshots"):
+                    continue
                 if not os.listdir(path):
                     zstream.write(path, os.path.relpath(path, project._path))
         except FileNotFoundError as e:
@@ -142,7 +164,7 @@ def _is_exportable(path, include_snapshots=False):
     """
 
     # do not export snapshots by default
-    if include_snapshots is False and path.endswith("snapshots"):
+    if include_snapshots is False and os.path.dirname(path).endswith("snapshots"):
         return False
 
     # do not export directories of snapshots
@@ -167,7 +189,16 @@ def _is_exportable(path, include_snapshots=False):
     return True
 
 
-async def _patch_project_file(project, path, zstream, include_images, keep_compute_ids, allow_all_nodes, temporary_dir, reset_mac_addresses):
+async def _patch_project_file(
+        project,
+        path,
+        zstream,
+        include_images,
+        keep_compute_ids,
+        allow_all_nodes,
+        temporary_dir,
+        reset_mac_addresses
+):
     """
     Patch a project file (.gns3) to export a project.
     The .gns3 file is renamed to project.gns3
@@ -240,7 +271,7 @@ async def _patch_project_file(project, path, zstream, include_images, keep_compu
     for compute_id, image_type, image in remote_images:
         await _export_remote_images(project, compute_id, image_type, image, zstream, temporary_dir)
 
-    zstream.writestr("project.gns3", json.dumps(topology).encode())
+    zstream.writestr("project.gns3", json.dumps(topology, indent=4, sort_keys=True).encode())
     return images
 
 

@@ -57,10 +57,11 @@ async def test_restore_snapshot(controller_api, project, snapshot):
     response = await controller_api.post("/projects/{}/snapshots/{}/restore".format(project.id, snapshot.id))
     assert response.status == 201
     assert response.json["name"] == project.name
+    assert response.json["project_id"] == project.id
 
 
 async def test_create_snapshot(controller_api, project):
 
     response = await controller_api.post("/projects/{}/snapshots".format(project.id), {"name": "snap1"})
     assert response.status == 201
-    assert len(os.listdir(os.path.join(project.path, "snapshots"))) == 1
+    assert len(os.listdir(os.path.join(project.path, "snapshots"))) == 2

@@ -91,7 +91,7 @@ class Node:
         self._first_port_name = None
         self._console_auto_start = False
 
-        # This properties will be recompute
+        # This properties will be recomputed
         ignore_properties = ("width", "height", "hover_symbol")
         self.properties = kwargs.pop('properties', {})
 
@@ -382,6 +382,7 @@ class Node:
                 await self.parse_node_response(response.json)
                 return True
             trial += 1
+        return False
 
     async def update(self, **kwargs):
         """
